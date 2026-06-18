@@ -37,14 +37,26 @@ EOF
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --profile)
+      if [ "$#" -lt 2 ] || [[ "${2:-}" == --* ]]; then
+        echo "Missing value for --profile. Expected mvp or full." >&2
+        exit 1
+      fi
       PROFILE="${2:-}"
       shift 2
       ;;
     --target)
+      if [ "$#" -lt 2 ] || [[ "${2:-}" == --* ]]; then
+        echo "Missing value for --target. Expected a directory path." >&2
+        exit 1
+      fi
       TARGET_DIR="${2:-}"
       shift 2
       ;;
     --pack)
+      if [ "$#" -lt 2 ] || [[ "${2:-}" == --* ]]; then
+        echo "Missing value for --pack. Expected a pack name." >&2
+        exit 1
+      fi
       PACKS+=("${2:-}")
       shift 2
       ;;

@@ -288,7 +288,7 @@ try {
     [string[]]$normalizedPacks = @(Get-NormalizedPacks -InputPacks $Pack)
 
     foreach ($packName in $normalizedPacks) {
-        if ($packName -notmatch "^[a-z0-9][a-z0-9-]*$") {
+        if ($packName -cnotmatch "^[a-z0-9][a-z0-9-]*$") {
             throw "Invalid pack name: $packName. Use lowercase letters, numbers, and hyphens."
         }
 
