@@ -25,8 +25,25 @@ For non-trivial engineering tasks:
 - Workflows and skills: `.agent-harness/superpowers/`
 - Instructions and controls: `.agent-harness/harness/`
 - External tool permissions: `.agent-harness/mcp/`
+- Installed stack or architecture packs: `.agent-harness/packs/`
 - Progress and handoff state: `.agent-harness/progress/`
 - Verification commands: `.agent-harness/scripts/`
+
+## Installed Packs
+
+When a task touches a stack, framework, or architecture covered by an installed
+pack, read that pack before planning or editing.
+
+Start with:
+
+```text
+.agent-harness/packs/<pack-name>/README.md
+.agent-harness/packs/<pack-name>/context.md
+```
+
+Pack instructions extend the core harness. If a pack conflicts with repository
+source code, tests, or explicit user requirements, treat the repository and user
+requirements as the source of truth.
 
 ## Verification
 
@@ -63,4 +80,3 @@ Final responses should include:
 - Tests or checks run.
 - Verification result.
 - Known risks or follow-up notes.
-

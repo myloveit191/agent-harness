@@ -6,6 +6,8 @@ TARGET_DIR="$PWD"
 FORCE=0
 REPO_URL="${AGENT_HARNESS_REPO:-https://github.com/myloveit191/agent-harness}"
 REF="${AGENT_HARNESS_REF:-main}"
+VERSION="0.2.0"
+PACKS=()
 
 if [ -x "/usr/bin/find" ]; then
   FIND_BIN="/usr/bin/find"
@@ -18,10 +20,11 @@ usage() {
 agent-harness installer
 
 Usage:
-  bash install.sh [--profile mvp|full] [--target DIR] [--force]
+  bash install.sh [--profile mvp|full] [--pack NAME] [--target DIR] [--force]
 
 Options:
   --profile   Template profile to install. Defaults to mvp.
+  --pack      Stack or architecture pack to install. Can be repeated.
   --target    Directory to install into. Defaults to current directory.
   --force     Back up and overwrite existing files.
   -h, --help  Show this help.
@@ -36,6 +39,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --target)
       TARGET_DIR="${2:-}"
+      shift 2
+      ;;
+    --pack)
+      PACKS+=("${2:-}")
       shift 2
       ;;
     --force)
@@ -63,6 +70,13 @@ if [ -z "$TARGET_DIR" ]; then
   echo "Target directory cannot be empty." >&2
   exit 1
 fi
+
+for pack in "${PACKS[@]}"; do
+  if ! [[ "$pack" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+    echo "Invalid pack name: $pack. Use lowercase letters, numbers, and hyphens." >&2
+    exit 1
+  fi
+done
 
 mkdir -p "$TARGET_DIR"
 TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
@@ -143,13 +157,104 @@ copy_profile() {
   done < <("$FIND_BIN" "$source_dir" -type f)
 }
 
+copy_pack() {
+  local templates_dir="$1"
+  local pack_name="$2"
+  local target_dir="$3"
+  local timestamp="$4"
+  local source_dir="$templates_dir/packs/$pack_name"
+  local destination_dir="$target_dir/.agent-harness/packs/$pack_name"
+
+  if [ ! -d "$source_dir" ]; then
+    echo "Pack does not exist: $pack_name" >&2
+    exit 1
+  fi
+
+  copy_profile "$source_dir" "$destination_dir" "$timestamp"
+}
+
+json_pack_array() {
+  local first=1
+  printf '['
+  for pack in "${PACKS[@]}"; do
+    if [ "$first" -eq 0 ]; then
+      printf ', '
+    fi
+    printf '"%s"' "$pack"
+    first=0
+  done
+  printf ']'
+}
+
+pack_list_text() {
+  local first=1
+  if [ "${#PACKS[@]}" -eq 0 ]; then
+    printf 'none'
+    return
+  fi
+
+  for pack in "${PACKS[@]}"; do
+    if [ "$first" -eq 0 ]; then
+      printf ', '
+    fi
+    printf '%s' "$pack"
+    first=0
+  done
+}
+
+write_metadata() {
+  local target_dir="$1"
+  local timestamp="$2"
+  local metadata_path="$target_dir/.agent-harness/agent-harness.json"
+  local installed_at
+  installed_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  local packs_json
+  packs_json="$(json_pack_array)"
+
+  mkdir -p "$(dirname "$metadata_path")"
+
+  if [ -e "$metadata_path" ]; then
+    if [ "$FORCE" -ne 1 ]; then
+      echo "Refusing to overwrite existing file: $metadata_path" >&2
+      echo "Re-run with --force to back it up and replace it." >&2
+      exit 1
+    fi
+    backup_path="$metadata_path.backup.$timestamp"
+    cp -p "$metadata_path" "$backup_path"
+    echo "Backed up $metadata_path -> $backup_path"
+  fi
+
+  cat > "$metadata_path" <<EOF
+{
+  "version": "$VERSION",
+  "profile": "$PROFILE",
+  "layout": "nested",
+  "packs": $packs_json,
+  "installedAt": "$installed_at"
+}
+EOF
+}
+
 TEMPLATES_DIR="$(resolve_templates_dir)"
 TIMESTAMP="$(date +%Y%m%d%H%M%S)"
 
-copy_profile "$TEMPLATES_DIR/mvp" "$TARGET_DIR" "$TIMESTAMP"
+for pack in "${PACKS[@]}"; do
+  if [ ! -d "$TEMPLATES_DIR/packs/$pack" ]; then
+    echo "Pack does not exist: $pack" >&2
+    exit 1
+  fi
+done
+
+copy_profile "$TEMPLATES_DIR/core/mvp" "$TARGET_DIR" "$TIMESTAMP"
 if [ "$PROFILE" = "full" ]; then
-  copy_profile "$TEMPLATES_DIR/full" "$TARGET_DIR" "$TIMESTAMP"
+  copy_profile "$TEMPLATES_DIR/core/full" "$TARGET_DIR" "$TIMESTAMP"
 fi
+
+for pack in "${PACKS[@]}"; do
+  copy_pack "$TEMPLATES_DIR" "$pack" "$TARGET_DIR" "$TIMESTAMP"
+done
+
+write_metadata "$TARGET_DIR" "$TIMESTAMP"
 
 chmod +x "$TARGET_DIR/.agent-harness/scripts/verify.sh" 2>/dev/null || true
 
@@ -158,6 +263,7 @@ cat <<EOF
 agent-harness installed.
 
 Profile: $PROFILE
+Packs:   $(pack_list_text)
 Target:  $TARGET_DIR
 
 Next steps:

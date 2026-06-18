@@ -2,11 +2,10 @@
 
 Universal AI Agent Engineering Framework installer for any repository.
 
-`agent-harness` installs a lightweight set of agent instructions, workflows,
-policies, progress files, and verification scripts into an existing project.
-The default profile is intentionally small: enough structure to make an AI
-agent work with context, limits, verification, and handoff without turning the
-repository into a documentation maze.
+`agent-harness` installs a lightweight core plus optional stack or architecture
+packs into an existing project. The default core is intentionally small: enough
+structure to make an AI agent work with context, limits, verification, and
+handoff without turning the repository into a documentation maze.
 
 ## Install
 
@@ -22,6 +21,18 @@ macOS / Linux with options:
 curl -fsSL https://raw.githubusercontent.com/myloveit191/agent-harness/main/install.sh | bash -s -- --profile mvp
 ```
 
+macOS / Linux with a pack:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/myloveit191/agent-harness/main/install.sh | bash -s -- --pack model-proxy-api
+```
+
+macOS / Linux with multiple packs once more packs are added:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/myloveit191/agent-harness/main/install.sh | bash -s -- --pack pack-one --pack pack-two
+```
+
 Windows PowerShell:
 
 ```powershell
@@ -32,6 +43,18 @@ Windows PowerShell with options:
 
 ```powershell
 iex "& { $(irm https://raw.githubusercontent.com/myloveit191/agent-harness/main/install.ps1) } -Profile mvp"
+```
+
+Windows PowerShell with a pack:
+
+```powershell
+iex "& { $(irm https://raw.githubusercontent.com/myloveit191/agent-harness/main/install.ps1) } -Pack model-proxy-api"
+```
+
+Windows PowerShell with multiple packs once more packs are added:
+
+```powershell
+iex "& { $(irm https://raw.githubusercontent.com/myloveit191/agent-harness/main/install.ps1) } -Pack pack-one,pack-two"
 ```
 
 ## Local Test
@@ -46,11 +69,46 @@ bash install.sh --target /path/to/project --profile mvp
 .\install.ps1 -Target C:\path\to\project -Profile mvp
 ```
 
+Local test with a pack:
+
+```bash
+bash install.sh --target /path/to/project --pack model-proxy-api
+```
+
+```powershell
+.\install.ps1 -Target C:\path\to\project -Pack model-proxy-api
+```
+
 ## Profiles
 
 - `mvp`: default, minimal framework for real projects.
 - `full`: installs the MVP files plus a small scaffold for teams that want to
   grow toward a production internal framework.
+
+## Core And Packs
+
+Core is shared by every project. It contains the agent entrypoint, workflows,
+policies, progress files, and verification scripts.
+
+Packs add stack, framework, or architecture-specific guidance. Installed packs
+live under:
+
+```text
+.agent-harness/packs/<pack-name>/
+```
+
+The first included pack is:
+
+- `model-proxy-api`: for APIs that route requests across multiple model
+  providers through a stable unified interface.
+
+Each pack should answer:
+
+1. What should the agent read first?
+2. Which boundaries must not be broken?
+3. Which verification should run?
+4. What risks are common?
+5. When is approval required?
 
 ## Safety
 
@@ -69,6 +127,12 @@ AGENTS.md
 
 Root `AGENTS.md` is only a small pointer. The actual framework lives under
 `.agent-harness/` so the project root stays clean.
+
+Install metadata is written to:
+
+```text
+.agent-harness/agent-harness.json
+```
 
 The installed framework is centered on five operating rules:
 
