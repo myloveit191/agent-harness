@@ -7,10 +7,13 @@ param(
 
     [string]$Target = (Get-Location).Path,
 
-    [switch]$Force
+    [switch]$Force,
+
+    [switch]$Yes
 )
 
 $ErrorActionPreference = "Stop"
+$InteractiveMode = $PSBoundParameters.Count -eq 0
 
 $RepoUrl = if ($env:AGENT_HARNESS_REPO) { $env:AGENT_HARNESS_REPO } else { "https://github.com/myloveit191/agent-harness" }
 $Ref = if ($env:AGENT_HARNESS_REF) { $env:AGENT_HARNESS_REF } else { "main" }
@@ -36,6 +39,17 @@ function Get-NormalizedPacks {
     }
 
     return $result.ToArray()
+}
+
+function Get-AvailablePacks {
+    param([Parameter(Mandatory = $true)][string]$TemplatesDirectory)
+
+    $packsDirectory = Join-Path $TemplatesDirectory "packs"
+    if (-not (Test-Path -LiteralPath $packsDirectory -PathType Container)) {
+        return @()
+    }
+
+    return @(Get-ChildItem -LiteralPath $packsDirectory -Directory | Sort-Object Name | ForEach-Object { $_.Name })
 }
 
 function Get-TemplatesDirectory {
@@ -166,10 +180,110 @@ function Write-Metadata {
     Write-GeneratedFile -Path $metadataPath -Content $json -Timestamp $Timestamp
 }
 
+function Invoke-InteractiveConfig {
+    param([Parameter(Mandatory = $true)][string]$TemplatesDirectory)
+
+    if (-not $InteractiveMode) {
+        return
+    }
+
+    Write-Host ""
+    Write-Host "Agent Harness Installer $Version"
+    Write-Host ""
+    Write-Host "Choose profile:"
+    Write-Host "  1) mvp  (recommended)"
+    Write-Host "  2) full"
+    $profileAnswer = Read-Host "Profile [1]"
+    switch ($profileAnswer) {
+        "2" { $script:Profile = "full" }
+        "full" { $script:Profile = "full" }
+        "Full" { $script:Profile = "full" }
+        default { $script:Profile = "mvp" }
+    }
+
+    $availablePacks = @(Get-AvailablePacks -TemplatesDirectory $TemplatesDirectory)
+    $script:Pack = @()
+    if ($availablePacks.Count -gt 0) {
+        Write-Host ""
+        Write-Host "Choose packs. Enter numbers or names separated by commas, or leave empty for none:"
+        for ($index = 0; $index -lt $availablePacks.Count; $index++) {
+            Write-Host ("  {0}) {1}" -f ($index + 1), $availablePacks[$index])
+        }
+
+        $packsAnswer = Read-Host "Packs [none]"
+        if ($packsAnswer) {
+            $selected = New-Object System.Collections.Generic.List[string]
+            foreach ($entry in ($packsAnswer -split ",")) {
+                $trimmed = $entry.Trim()
+                if (-not $trimmed) {
+                    continue
+                }
+
+                $number = 0
+                if ([int]::TryParse($trimmed, [ref]$number) -and $number -ge 1 -and $number -le $availablePacks.Count) {
+                    $selected.Add($availablePacks[$number - 1])
+                }
+                else {
+                    $selected.Add($trimmed)
+                }
+            }
+            $script:Pack = $selected.ToArray()
+        }
+    }
+
+    Write-Host ""
+    $targetAnswer = Read-Host "Target directory [$Target]"
+    if ($targetAnswer) {
+        $script:Target = $targetAnswer
+    }
+
+    $rootAgents = Join-Path $script:Target "AGENTS.md"
+    $harnessDirectory = Join-Path $script:Target ".agent-harness"
+    if ((Test-Path -LiteralPath $rootAgents) -or (Test-Path -LiteralPath $harnessDirectory)) {
+        Write-Host ""
+        Write-Host "Existing agent-harness files were found in the target."
+        $overwriteAnswer = Read-Host "Back up and overwrite existing files? [y/N]"
+        if ($overwriteAnswer -match "^(y|yes)$") {
+            $script:Force = $true
+        }
+        else {
+            $script:Force = $false
+        }
+    }
+
+    [string[]]$summaryPacks = @(Get-NormalizedPacks -InputPacks $script:Pack)
+    Write-Host ""
+    Write-Host "Install summary:"
+    Write-Host "  Profile: $script:Profile"
+    if ($summaryPacks.Count -eq 0) {
+        Write-Host "  Packs:   none"
+    }
+    else {
+        Write-Host "  Packs:   $($summaryPacks -join ', ')"
+    }
+    Write-Host "  Target:  $script:Target"
+    if ($script:Force) {
+        Write-Host "  Force:   backup and overwrite"
+    }
+    else {
+        Write-Host "  Force:   no"
+    }
+
+    if (-not $script:Yes) {
+        $confirmAnswer = Read-Host "Continue? [Y/n]"
+        if ($confirmAnswer -match "^(n|no)$") {
+            Write-Host "Install cancelled."
+            exit 0
+        }
+    }
+}
+
 try {
+    $templatesDirectory = Get-TemplatesDirectory
+    Invoke-InteractiveConfig -TemplatesDirectory $templatesDirectory
+
     New-Item -ItemType Directory -Path $Target -Force | Out-Null
     $Target = (Resolve-Path -LiteralPath $Target).Path
-    $templatesDirectory = Get-TemplatesDirectory
     $timestamp = Get-Date -Format "yyyyMMddHHmmss"
     [string[]]$normalizedPacks = @(Get-NormalizedPacks -InputPacks $Pack)
 

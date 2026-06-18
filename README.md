@@ -9,6 +9,9 @@ handoff without turning the repository into a documentation maze.
 
 ## Install
 
+Run without options for an interactive install. The installer will ask for the
+profile, packs, target directory, overwrite behavior, and final confirmation.
+
 macOS / Linux:
 
 ```bash
@@ -39,7 +42,7 @@ Windows PowerShell:
 irm https://raw.githubusercontent.com/myloveit191/agent-harness/main/install.ps1 | iex
 ```
 
-Windows PowerShell with options:
+Pass options for non-interactive installs:
 
 ```powershell
 iex "& { $(irm https://raw.githubusercontent.com/myloveit191/agent-harness/main/install.ps1) } -Profile mvp"
@@ -117,6 +120,9 @@ The installer does not require a Git repository.
 By default, it refuses to overwrite existing files. Use `--force` on
 macOS/Linux or `-Force` on Windows to replace existing files. When force is
 enabled, overwritten files are backed up with a timestamp suffix first.
+
+Use `--yes` on macOS/Linux or `-Yes` on Windows to skip the final confirmation
+when scripting installs.
 
 ## What MVP Installs
 

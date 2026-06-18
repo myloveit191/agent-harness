@@ -4,10 +4,12 @@ set -euo pipefail
 PROFILE="mvp"
 TARGET_DIR="$PWD"
 FORCE=0
+YES=0
 REPO_URL="${AGENT_HARNESS_REPO:-https://github.com/myloveit191/agent-harness}"
 REF="${AGENT_HARNESS_REF:-main}"
 VERSION="0.2.0"
 PACKS=()
+ORIGINAL_ARG_COUNT="$#"
 
 if [ -x "/usr/bin/find" ]; then
   FIND_BIN="/usr/bin/find"
@@ -27,6 +29,7 @@ Options:
   --pack      Stack or architecture pack to install. Can be repeated.
   --target    Directory to install into. Defaults to current directory.
   --force     Back up and overwrite existing files.
+  --yes       Skip final confirmation in scripted usage.
   -h, --help  Show this help.
 EOF
 }
@@ -47,6 +50,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --force)
       FORCE=1
+      shift
+      ;;
+    --yes)
+      YES=1
       shift
       ;;
     -h|--help)
@@ -70,16 +77,6 @@ if [ -z "$TARGET_DIR" ]; then
   echo "Target directory cannot be empty." >&2
   exit 1
 fi
-
-for pack in "${PACKS[@]}"; do
-  if ! [[ "$pack" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
-    echo "Invalid pack name: $pack. Use lowercase letters, numbers, and hyphens." >&2
-    exit 1
-  fi
-done
-
-mkdir -p "$TARGET_DIR"
-TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
 
 SCRIPT_PATH="${BASH_SOURCE[0]:-$0}"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" 2>/dev/null && pwd || true)"
@@ -202,6 +199,122 @@ pack_list_text() {
   done
 }
 
+tty_print() {
+  printf '%s\n' "$*" > /dev/tty
+}
+
+tty_prompt() {
+  local prompt="$1"
+  local answer
+  printf '%s' "$prompt" > /dev/tty
+  IFS= read -r answer < /dev/tty || answer=""
+  printf '%s' "$answer"
+}
+
+available_pack_names() {
+  local packs_dir="$TEMPLATES_DIR/packs"
+  if [ ! -d "$packs_dir" ]; then
+    return
+  fi
+
+  for pack_dir in "$packs_dir"/*; do
+    if [ -d "$pack_dir" ]; then
+      basename "$pack_dir"
+    fi
+  done | sort
+}
+
+run_interactive_config() {
+  if [ "$ORIGINAL_ARG_COUNT" -ne 0 ] || [ ! -r /dev/tty ]; then
+    return
+  fi
+
+  tty_print ""
+  tty_print "Agent Harness Installer $VERSION"
+  tty_print ""
+  tty_print "Choose profile:"
+  tty_print "  1) mvp  (recommended)"
+  tty_print "  2) full"
+  profile_answer="$(tty_prompt "Profile [1]: ")"
+  case "$profile_answer" in
+    2|full|Full|FULL) PROFILE="full" ;;
+    *) PROFILE="mvp" ;;
+  esac
+
+  available_packs=()
+  while IFS= read -r pack_name; do
+    available_packs+=("$pack_name")
+  done < <(available_pack_names)
+  PACKS=()
+  if [ "${#available_packs[@]}" -gt 0 ]; then
+    tty_print ""
+    tty_print "Choose packs. Enter numbers or names separated by commas, or leave empty for none:"
+    local index=1
+    for pack in "${available_packs[@]}"; do
+      tty_print "  $index) $pack"
+      index=$((index + 1))
+    done
+
+    packs_answer="$(tty_prompt "Packs [none]: ")"
+    if [ -n "$packs_answer" ]; then
+      old_ifs="$IFS"
+      IFS=','
+      read -ra requested_packs <<< "$packs_answer"
+      IFS="$old_ifs"
+
+      for requested in "${requested_packs[@]}"; do
+        requested="$(printf '%s' "$requested" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+        if [ -z "$requested" ]; then
+          continue
+        fi
+
+        if [[ "$requested" =~ ^[0-9]+$ ]] && [ "$requested" -ge 1 ] && [ "$requested" -le "${#available_packs[@]}" ]; then
+          PACKS+=("${available_packs[$((requested - 1))]}")
+        else
+          PACKS+=("$requested")
+        fi
+      done
+    fi
+  fi
+
+  tty_print ""
+  target_answer="$(tty_prompt "Target directory [$TARGET_DIR]: ")"
+  if [ -n "$target_answer" ]; then
+    TARGET_DIR="$target_answer"
+  fi
+
+  if [ -e "$TARGET_DIR/AGENTS.md" ] || [ -e "$TARGET_DIR/.agent-harness" ]; then
+    tty_print ""
+    tty_print "Existing agent-harness files were found in the target."
+    overwrite_answer="$(tty_prompt "Back up and overwrite existing files? [y/N]: ")"
+    case "$overwrite_answer" in
+      y|Y|yes|YES) FORCE=1 ;;
+      *) FORCE=0 ;;
+    esac
+  fi
+
+  tty_print ""
+  tty_print "Install summary:"
+  tty_print "  Profile: $PROFILE"
+  tty_print "  Packs:   $(pack_list_text)"
+  tty_print "  Target:  $TARGET_DIR"
+  if [ "$FORCE" -eq 1 ]; then
+    tty_print "  Force:   backup and overwrite"
+  else
+    tty_print "  Force:   no"
+  fi
+
+  if [ "$YES" -ne 1 ]; then
+    confirm_answer="$(tty_prompt "Continue? [Y/n]: ")"
+    case "$confirm_answer" in
+      n|N|no|NO)
+        tty_print "Install cancelled."
+        exit 0
+        ;;
+    esac
+  fi
+}
+
 write_metadata() {
   local target_dir="$1"
   local timestamp="$2"
@@ -236,6 +349,28 @@ EOF
 }
 
 TEMPLATES_DIR="$(resolve_templates_dir)"
+run_interactive_config
+
+if [ "$PROFILE" != "mvp" ] && [ "$PROFILE" != "full" ]; then
+  echo "Invalid profile: $PROFILE. Expected mvp or full." >&2
+  exit 1
+fi
+
+if [ -z "$TARGET_DIR" ]; then
+  echo "Target directory cannot be empty." >&2
+  exit 1
+fi
+
+for pack in "${PACKS[@]}"; do
+  if ! [[ "$pack" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+    echo "Invalid pack name: $pack. Use lowercase letters, numbers, and hyphens." >&2
+    exit 1
+  fi
+done
+
+mkdir -p "$TARGET_DIR"
+TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
+
 TIMESTAMP="$(date +%Y%m%d%H%M%S)"
 
 for pack in "${PACKS[@]}"; do
