@@ -101,9 +101,9 @@ try {
     Write-Host ""
     Write-Host "Next steps:"
     Write-Host "  1. Review AGENTS.md."
-    Write-Host "  2. Customize .harness/instructions/context-map.md."
+    Write-Host "  2. Customize .agent-harness/harness/instructions/context-map.md."
     Write-Host "  3. Run verification:"
-    Write-Host "     .\scripts\verify.ps1"
+    Write-Host "     .\.agent-harness\scripts\verify.ps1"
     Write-Host ""
 }
 finally {

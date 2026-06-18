@@ -151,7 +151,7 @@ if [ "$PROFILE" = "full" ]; then
   copy_profile "$TEMPLATES_DIR/full" "$TARGET_DIR" "$TIMESTAMP"
 fi
 
-chmod +x "$TARGET_DIR/scripts/verify.sh" 2>/dev/null || true
+chmod +x "$TARGET_DIR/.agent-harness/scripts/verify.sh" 2>/dev/null || true
 
 cat <<EOF
 
@@ -162,8 +162,8 @@ Target:  $TARGET_DIR
 
 Next steps:
   1. Review AGENTS.md.
-  2. Customize .harness/instructions/context-map.md.
+  2. Customize .agent-harness/harness/instructions/context-map.md.
   3. Run verification:
-     ./scripts/verify.sh
+     ./.agent-harness/scripts/verify.sh
 
 EOF

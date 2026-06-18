@@ -64,13 +64,11 @@ enabled, overwritten files are backed up with a timestamp suffix first.
 
 ```text
 AGENTS.md
-.superpowers/
-.harness/
-.mcp/
-progress/
-scripts/verify.sh
-scripts/verify.ps1
+.agent-harness/
 ```
+
+Root `AGENTS.md` is only a small pointer. The actual framework lives under
+`.agent-harness/` so the project root stays clean.
 
 The installed framework is centered on five operating rules:
 
