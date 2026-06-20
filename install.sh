@@ -287,7 +287,7 @@ check_metadata() {
 
   if command -v python3 >/dev/null 2>&1; then
     python_bin="python3"
-  elif command -v python >/dev/null 2>&1; then
+  elif command -v python >/dev/null 2>&1 && python -c 'import sys; sys.exit(0 if sys.version_info[0] >= 3 else 1)' >/dev/null 2>&1; then
     python_bin="python"
   else
     echo "WARN Metadata JSON not parsed because Python is unavailable."
