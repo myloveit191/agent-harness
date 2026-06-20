@@ -66,8 +66,10 @@ iex "& { $(irm https://raw.githubusercontent.com/myloveit191/agent-harness/main/
    - Packs add stack, framework, or architecture-specific guidance.
 
 3. First pack is `model-proxy-api`.
-   - Chosen because the next real project is expected to be a proxy model API
-     that can route across multiple model providers.
+   - Chosen because the next real project is expected to need a stable model
+     interface that can switch across providers or model families when the
+     primary model hits usage limits, outages, cost ceilings, or capability
+     gaps.
 
 4. Installers are safe by default.
    - Existing files are not overwritten unless `--force` or `-Force` is used.
@@ -135,6 +137,7 @@ Files:
 README.md
 context.md
 architecture-policy.md
+model-portability-policy.md
 provider-adapter-policy.md
 routing-and-fallback-policy.md
 security-policy.md
@@ -144,10 +147,14 @@ verification-policy.md
 
 Purpose:
 
-- Guide agents working on APIs that proxy requests to multiple model providers.
+- Guide agents working on APIs or apps that call AI models through a stable
+  interface.
+- Make model changes routine through aliases, routing config, fallback chains,
+  and adapter mappings.
 - Keep provider-specific behavior behind adapters.
 - Preserve a stable unified public API.
-- Emphasize routing, fallback, security, observability, and deterministic tests.
+- Emphasize portability, routing, fallback, security, observability, and
+  deterministic tests.
 
 ## Verification Already Performed
 

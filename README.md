@@ -132,8 +132,9 @@ live under:
 
 The first included pack is:
 
-- `model-proxy-api`: for APIs that route requests across multiple model
-  providers through a stable unified interface.
+- `model-proxy-api`: for projects that call AI models through a stable
+  interface and need routing, fallback, and portability across providers or
+  model families.
 
 Each pack should answer:
 
