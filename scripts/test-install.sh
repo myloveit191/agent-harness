@@ -67,6 +67,9 @@ assert_file "$MVP_TARGET/.agent-harness/agent-harness.json"
 assert_file "$MVP_TARGET/.agent-harness/scripts/verify.sh"
 assert_file "$MVP_TARGET/.agent-harness/scripts/verify.ps1"
 assert_grep '"packs": \[\]' "$MVP_TARGET/.agent-harness/agent-harness.json"
+assert_grep "Awaiting your approval before making code changes." "$MVP_TARGET/.agent-harness/AGENTS.md"
+assert_grep "Writing or modifying source code" "$MVP_TARGET/.agent-harness/harness/tools/tool-policy.md"
+assert_grep "Recommendation: proceed" "$MVP_TARGET/.agent-harness/harness/governance/approval-policy.md"
 pass "mvp install"
 
 (cd "$MVP_TARGET" && ./.agent-harness/scripts/verify.sh >"$TEST_ROOT/verify.out")

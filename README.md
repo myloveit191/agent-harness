@@ -175,6 +175,12 @@ The installed framework is centered on five operating rules:
 
 1. The repository is the source of truth.
 2. Ambiguous tasks must be clarified before implementation.
-3. Behavior changes need tests.
-4. Completion requires verification.
-5. Risky actions require approval.
+3. Code-changing actions require user approval before implementation.
+4. Behavior changes need tests.
+5. Completion requires verification.
+6. Risky actions require approval.
+
+When an agent recommends a code change, it should present the intended action,
+state whether it recommends proceeding, and wait for explicit user approval
+before editing code, tests, configuration, generated artifacts, or project
+documentation.
