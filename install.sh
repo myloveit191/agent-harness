@@ -435,8 +435,27 @@ available_pack_names() {
   done | sort
 }
 
+normalize_pack_name() {
+  local pack_name="$1"
+  pack_name="$(printf '%s' "$pack_name" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+
+  case "$pack_name" in
+    next|nextjs|next-js|next.js|"next js"|"Next.js"|"Next JS"|"next JS")
+      printf 'nextjs'
+      ;;
+    *)
+      printf '%s' "$pack_name"
+      ;;
+  esac
+}
+
 run_interactive_config() {
-  if [ "$ORIGINAL_ARG_COUNT" -ne 0 ] || [ ! -r /dev/tty ]; then
+  if [ "$ORIGINAL_ARG_COUNT" -ne 0 ]; then
+    return
+  fi
+
+  if [ ! -r /dev/tty ]; then
+    echo "No interactive terminal detected; using defaults. Pass --pack nextjs to install the Next.js pack." >&2
     return
   fi
 
@@ -482,7 +501,7 @@ run_interactive_config() {
         if [[ "$requested" =~ ^[0-9]+$ ]] && [ "$requested" -ge 1 ] && [ "$requested" -le "${#available_packs[@]}" ]; then
           PACKS+=("${available_packs[$((requested - 1))]}")
         else
-          PACKS+=("$requested")
+          PACKS+=("$(normalize_pack_name "$requested")")
         fi
       done
     fi
@@ -590,7 +609,9 @@ if [ "$CHECK" -eq 1 ]; then
 fi
 
 if [ "${#PACKS[@]}" -gt 0 ]; then
-  for pack in "${PACKS[@]}"; do
+  for pack_index in "${!PACKS[@]}"; do
+    pack="$(normalize_pack_name "${PACKS[$pack_index]}")"
+    PACKS[$pack_index]="$pack"
     if ! [[ "$pack" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
       echo "Invalid pack name: $pack. Use lowercase letters, numbers, and hyphens." >&2
       exit 1

@@ -99,6 +99,18 @@ bash "$INSTALL_SH" --check --target "$PACK_TARGET" >"$TEST_ROOT/check-pack.out"
 assert_grep "installed pack nextjs" "$TEST_ROOT/check-pack.out"
 pass "pack install and check"
 
+PACK_ALIAS_TARGET="$TEST_ROOT/pack-alias"
+bash "$INSTALL_SH" --target "$PACK_ALIAS_TARGET" --profile mvp --pack next.js --yes >"$TEST_ROOT/pack-alias.out"
+assert_file "$PACK_ALIAS_TARGET/.agent-harness/packs/nextjs/README.md"
+assert_grep '"packs": \["nextjs"\]' "$PACK_ALIAS_TARGET/.agent-harness/agent-harness.json"
+pass "pack alias next.js installs nextjs"
+
+PACK_SPACE_ALIAS_TARGET="$TEST_ROOT/pack-space-alias"
+bash "$INSTALL_SH" --target "$PACK_SPACE_ALIAS_TARGET" --profile mvp --pack "next js" --yes >"$TEST_ROOT/pack-space-alias.out"
+assert_file "$PACK_SPACE_ALIAS_TARGET/.agent-harness/packs/nextjs/README.md"
+assert_grep '"packs": \["nextjs"\]' "$PACK_SPACE_ALIAS_TARGET/.agent-harness/agent-harness.json"
+pass "pack alias next js installs nextjs"
+
 DRY_TARGET="$TEST_ROOT/dry-run-target"
 bash "$INSTALL_SH" --dry-run --target "$DRY_TARGET" --profile mvp --yes >"$TEST_ROOT/dry-run.out"
 assert_grep "CREATE" "$TEST_ROOT/dry-run.out"
