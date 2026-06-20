@@ -283,14 +283,19 @@ check_metadata() {
   local metadata_path="$1"
   local target_dir="$2"
   local packs_file="$3"
+  local python_bin
 
-  if ! command -v python3 >/dev/null 2>&1; then
-    echo "WARN Metadata JSON not parsed because python3 is unavailable."
+  if command -v python3 >/dev/null 2>&1; then
+    python_bin="python3"
+  elif command -v python >/dev/null 2>&1; then
+    python_bin="python"
+  else
+    echo "WARN Metadata JSON not parsed because Python is unavailable."
     : > "$packs_file"
     return 0
   fi
 
-  if ! python3 - "$metadata_path" "$packs_file" <<'PY'
+  if ! "$python_bin" - "$metadata_path" "$packs_file" <<'PY'
 import json
 import sys
 
@@ -346,6 +351,7 @@ run_check() {
   fi
 
   while IFS= read -r pack; do
+    pack="${pack%$'\r'}"
     if [ -z "$pack" ]; then
       continue
     fi

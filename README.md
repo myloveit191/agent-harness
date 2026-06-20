@@ -27,7 +27,7 @@ curl -fsSL https://raw.githubusercontent.com/myloveit191/agent-harness/main/inst
 macOS / Linux with a pack:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/myloveit191/agent-harness/main/install.sh | bash -s -- --pack model-proxy-api
+curl -fsSL https://raw.githubusercontent.com/myloveit191/agent-harness/main/install.sh | bash -s -- --pack nextjs
 ```
 
 macOS / Linux with multiple packs once more packs are added:
@@ -45,7 +45,7 @@ bash install.sh --check --target /path/to/project
 Preview changes without writing files:
 
 ```bash
-bash install.sh --dry-run --target /path/to/project --pack model-proxy-api
+bash install.sh --dry-run --target /path/to/project --pack nextjs
 ```
 
 Windows PowerShell:
@@ -63,7 +63,7 @@ iex "& { $(irm https://raw.githubusercontent.com/myloveit191/agent-harness/main/
 Windows PowerShell with a pack:
 
 ```powershell
-iex "& { $(irm https://raw.githubusercontent.com/myloveit191/agent-harness/main/install.ps1) } -Pack model-proxy-api"
+iex "& { $(irm https://raw.githubusercontent.com/myloveit191/agent-harness/main/install.ps1) } -Pack nextjs"
 ```
 
 Windows PowerShell with multiple packs once more packs are added:
@@ -81,7 +81,7 @@ Check an existing install:
 Preview changes without writing files:
 
 ```powershell
-.\install.ps1 -DryRun -Target C:\path\to\project -Pack model-proxy-api
+.\install.ps1 -DryRun -Target C:\path\to\project -Pack nextjs
 ```
 
 ## Local Test
@@ -99,11 +99,11 @@ bash install.sh --target /path/to/project --profile mvp
 Local test with a pack:
 
 ```bash
-bash install.sh --target /path/to/project --pack model-proxy-api
+bash install.sh --target /path/to/project --pack nextjs
 ```
 
 ```powershell
-.\install.ps1 -Target C:\path\to\project -Pack model-proxy-api
+.\install.ps1 -Target C:\path\to\project -Pack nextjs
 ```
 
 Run the installer test harness:
@@ -130,11 +130,11 @@ live under:
 .agent-harness/packs/<pack-name>/
 ```
 
-The first included pack is:
+Included packs:
 
-- `model-proxy-api`: for projects that call AI models through a stable
-  interface and need routing, fallback, and portability across providers or
-  model families.
+- `nextjs`: for Next.js applications, including App Router, Pages Router,
+  server/client boundaries, rendering, data fetching, styling, security,
+  performance, and verification guidance.
 
 Each pack should answer:
 

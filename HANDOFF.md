@@ -23,7 +23,7 @@ The project currently supports:
   - `templates/core/mvp`
   - `templates/core/full`
 - Pack templates:
-  - `templates/packs/model-proxy-api`
+  - `templates/packs/nextjs`
 - Bash installer:
   - `install.sh`
 - PowerShell installer:
@@ -45,14 +45,14 @@ curl -fsSL https://raw.githubusercontent.com/myloveit191/agent-harness/main/inst
 irm https://raw.githubusercontent.com/myloveit191/agent-harness/main/install.ps1 | iex
 ```
 
-Non-interactive install with the `model-proxy-api` pack:
+Non-interactive install with the `nextjs` pack:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/myloveit191/agent-harness/main/install.sh | bash -s -- --profile mvp --pack model-proxy-api --yes
+curl -fsSL https://raw.githubusercontent.com/myloveit191/agent-harness/main/install.sh | bash -s -- --profile mvp --pack nextjs --yes
 ```
 
 ```powershell
-iex "& { $(irm https://raw.githubusercontent.com/myloveit191/agent-harness/main/install.ps1) } -Profile mvp -Pack model-proxy-api -Yes"
+iex "& { $(irm https://raw.githubusercontent.com/myloveit191/agent-harness/main/install.ps1) } -Profile mvp -Pack nextjs -Yes"
 ```
 
 ## Important Design Decisions
@@ -65,11 +65,10 @@ iex "& { $(irm https://raw.githubusercontent.com/myloveit191/agent-harness/main/
    - Core is shared by every project.
    - Packs add stack, framework, or architecture-specific guidance.
 
-3. First pack is `model-proxy-api`.
-   - Chosen because the next real project is expected to need a stable model
-     interface that can switch across providers or model families when the
-     primary model hits usage limits, outages, cost ceilings, or capability
-     gaps.
+3. Current stack pack is `nextjs`.
+   - Chosen to guide agents working on Next.js applications across routing,
+     rendering, data fetching, server/client boundaries, styling, security,
+     performance, and verification.
 
 4. Installers are safe by default.
    - Existing files are not overwritten unless `--force` or `-Force` is used.
@@ -96,7 +95,7 @@ Bash:
 PowerShell:
 
 - `-Profile mvp|full`
-- `-Pack model-proxy-api`
+- `-Pack nextjs`
 - `-Pack pack-one,pack-two`
 - `-Target <dir>`
 - `-Force`
@@ -118,17 +117,17 @@ Example:
   "version": "0.2.0",
   "profile": "mvp",
   "layout": "nested",
-  "packs": ["model-proxy-api"],
+  "packs": ["nextjs"],
   "installedAt": "2026-06-18T09:20:45Z"
 }
 ```
 
-### `model-proxy-api` Pack
+### `nextjs` Pack
 
 Located at:
 
 ```text
-templates/packs/model-proxy-api/
+templates/packs/nextjs/
 ```
 
 Files:
@@ -136,25 +135,23 @@ Files:
 ```text
 README.md
 context.md
-architecture-policy.md
-model-portability-policy.md
-provider-adapter-policy.md
-routing-and-fallback-policy.md
+routing-policy.md
+rendering-and-data-policy.md
+server-client-boundary-policy.md
+styling-and-ui-policy.md
 security-policy.md
-observability-policy.md
+performance-policy.md
 verification-policy.md
 ```
 
 Purpose:
 
-- Guide agents working on APIs or apps that call AI models through a stable
-  interface.
-- Make model changes routine through aliases, routing config, fallback chains,
-  and adapter mappings.
-- Keep provider-specific behavior behind adapters.
-- Preserve a stable unified public API.
-- Emphasize portability, routing, fallback, security, observability, and
-  deterministic tests.
+- Guide agents working on Next.js applications.
+- Make router discovery explicit before route, layout, data loading, or
+  metadata changes.
+- Preserve server/client component boundaries.
+- Emphasize rendering behavior, data fetching, security, performance, styling,
+  and repository-defined verification.
 
 ## Verification Already Performed
 
@@ -162,9 +159,9 @@ The following scenarios were tested successfully:
 
 - PowerShell core-only install.
 - Git Bash core-only install.
-- PowerShell install with `model-proxy-api`.
-- Git Bash install with `model-proxy-api`.
-- `full + model-proxy-api`.
+- PowerShell install with `nextjs`.
+- Git Bash install with `nextjs`.
+- `full + nextjs`.
 - Missing pack fails cleanly.
 - Mixed valid and invalid packs fail before copying partial files.
 - No-force overwrite fails safely.
@@ -234,13 +231,10 @@ packs, then update core and packs safely.
 
 ### 0.5.0
 
-Add the first stack-specific pack.
-
-Pick based on the actual implementation stack of the upcoming
-`proxy-model-api` project:
+Add more stack-specific packs based on real project demand, such as:
 
 - `typescript-api`
-- or `spring-boot-api`
+- `spring-boot-api`
 
 ### 0.6.0
 
@@ -248,7 +242,7 @@ Add examples:
 
 ```text
 examples/
-+-- model-proxy-api/
++-- nextjs/
 +-- minimal-project/
 +-- full-profile-project/
 ```
@@ -273,6 +267,8 @@ Stabilize:
   - `--target`
   - `--profile`
 - Hardened PowerShell pack validation to reject uppercase or invalid pack names.
+- Added `nextjs` pack guidance for Next.js applications.
+- Hardened Bash check/test behavior on Windows Git Bash environments.
 
 ### 0.2.0
 

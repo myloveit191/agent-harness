@@ -6,6 +6,12 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 INSTALL_SH="$REPO_ROOT/install.sh"
 TEST_ROOT="$(mktemp -d /tmp/agent-harness-tests.XXXXXX)"
 
+if [ -x "/usr/bin/find" ]; then
+  FIND_BIN="/usr/bin/find"
+else
+  FIND_BIN="find"
+fi
+
 cleanup() {
   rm -rf "$TEST_ROOT"
 }
@@ -85,11 +91,12 @@ assert_file "$FULL_TARGET/.agent-harness/agent/router/task-router.md"
 pass "full install"
 
 PACK_TARGET="$TEST_ROOT/pack"
-bash "$INSTALL_SH" --target "$PACK_TARGET" --profile mvp --pack model-proxy-api --yes >"$TEST_ROOT/pack.out"
-assert_file "$PACK_TARGET/.agent-harness/packs/model-proxy-api/README.md"
-assert_grep '"packs": \["model-proxy-api"\]' "$PACK_TARGET/.agent-harness/agent-harness.json"
+bash "$INSTALL_SH" --target "$PACK_TARGET" --profile mvp --pack nextjs --yes >"$TEST_ROOT/pack.out"
+assert_file "$PACK_TARGET/.agent-harness/packs/nextjs/README.md"
+assert_file "$PACK_TARGET/.agent-harness/packs/nextjs/verification-policy.md"
+assert_grep '"packs": \["nextjs"\]' "$PACK_TARGET/.agent-harness/agent-harness.json"
 bash "$INSTALL_SH" --check --target "$PACK_TARGET" >"$TEST_ROOT/check-pack.out"
-assert_grep "installed pack model-proxy-api" "$TEST_ROOT/check-pack.out"
+assert_grep "installed pack nextjs" "$TEST_ROOT/check-pack.out"
 pass "pack install and check"
 
 DRY_TARGET="$TEST_ROOT/dry-run-target"
@@ -117,7 +124,7 @@ assert_grep "Refusing to overwrite existing file" "$TEST_ROOT/no-force.out"
 pass "no-force overwrite fails"
 
 bash "$INSTALL_SH" --target "$MVP_TARGET" --profile mvp --force --yes >"$TEST_ROOT/force.out"
-find "$MVP_TARGET" -name '*.backup.*' -print | grep -q .
+"$FIND_BIN" "$MVP_TARGET" -name '*.backup.*' -print | grep -q .
 pass "force overwrite creates backups"
 
 printf 'All install tests passed.\n'
