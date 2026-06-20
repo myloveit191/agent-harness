@@ -129,7 +129,7 @@ resolve_templates_dir() {
     return 1
   fi
 
-  echo "Downloading templates from $REPO_URL ($REF)..."
+  echo "Downloading templates from $REPO_URL ($REF)..." >&2
   curl -fsSL "$REPO_URL/archive/refs/heads/$REF.tar.gz" -o "$ARCHIVE"
   tar -xzf "$ARCHIVE" -C "$TEMP_DIR"
 
