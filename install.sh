@@ -5,6 +5,8 @@ PROFILE="mvp"
 TARGET_DIR="$PWD"
 FORCE=0
 YES=0
+CHECK=0
+DRY_RUN=0
 REPO_URL="${AGENT_HARNESS_REPO:-https://github.com/myloveit191/agent-harness}"
 REF="${AGENT_HARNESS_REF:-main}"
 VERSION="0.2.0"
@@ -23,6 +25,8 @@ agent-harness installer
 
 Usage:
   bash install.sh [--profile mvp|full] [--pack NAME] [--target DIR] [--force]
+  bash install.sh --check [--target DIR]
+  bash install.sh --dry-run [--profile mvp|full] [--pack NAME] [--target DIR] [--force]
 
 Options:
   --profile   Template profile to install. Defaults to mvp.
@@ -30,6 +34,8 @@ Options:
   --target    Directory to install into. Defaults to current directory.
   --force     Back up and overwrite existing files.
   --yes       Skip final confirmation in scripted usage.
+  --check     Check an existing installation without changing files.
+  --dry-run   Show planned file changes without changing files.
   -h, --help  Show this help.
 EOF
 }
@@ -66,6 +72,14 @@ while [ "$#" -gt 0 ]; do
       ;;
     --yes)
       YES=1
+      shift
+      ;;
+    --check)
+      CHECK=1
+      shift
+      ;;
+    --dry-run)
+      DRY_RUN=1
       shift
       ;;
     -h|--help)
@@ -182,16 +196,193 @@ copy_pack() {
   copy_profile "$source_dir" "$destination_dir" "$timestamp"
 }
 
+list_profile_files() {
+  local source_dir="$1"
+  local destination_dir="$2"
+
+  "$FIND_BIN" "$source_dir" -type f | while IFS= read -r file_path; do
+    rel_path="${file_path#$source_dir/}"
+    printf '%s\n' "$destination_dir/$rel_path"
+  done
+}
+
+list_install_files() {
+  local templates_dir="$1"
+  local target_dir="$2"
+
+  list_profile_files "$templates_dir/core/mvp" "$target_dir"
+  if [ "$PROFILE" = "full" ]; then
+    list_profile_files "$templates_dir/core/full" "$target_dir"
+  fi
+
+  if [ "${#PACKS[@]}" -gt 0 ]; then
+    for pack in "${PACKS[@]}"; do
+      list_profile_files "$templates_dir/packs/$pack" "$target_dir/.agent-harness/packs/$pack"
+    done
+  fi
+
+  printf '%s\n' "$target_dir/.agent-harness/agent-harness.json"
+}
+
+run_dry_run() {
+  local templates_dir="$1"
+  local target_dir="$2"
+
+  echo "agent-harness dry run"
+  echo ""
+  echo "Profile: $PROFILE"
+  echo "Packs:   $(pack_list_text)"
+  echo "Target:  $target_dir"
+  if [ "$FORCE" -eq 1 ]; then
+    echo "Force:   backup and overwrite"
+  else
+    echo "Force:   no"
+  fi
+  echo ""
+
+  list_install_files "$templates_dir" "$target_dir" | while IFS= read -r dest_path; do
+    if [ -e "$dest_path" ]; then
+      if [ "$FORCE" -eq 1 ]; then
+        echo "BACKUP+OVERWRITE $dest_path"
+      else
+        echo "WOULD FAIL       $dest_path"
+      fi
+    else
+      echo "CREATE           $dest_path"
+    fi
+  done
+}
+
+check_path_exists() {
+  local path="$1"
+  local label="$2"
+
+  if [ -e "$path" ]; then
+    echo "OK   $label"
+    return 0
+  fi
+
+  echo "FAIL $label missing: $path"
+  return 1
+}
+
+check_file_exists() {
+  local path="$1"
+  local label="$2"
+
+  if [ -f "$path" ]; then
+    echo "OK   $label"
+    return 0
+  fi
+
+  echo "FAIL $label missing: $path"
+  return 1
+}
+
+check_metadata() {
+  local metadata_path="$1"
+  local target_dir="$2"
+  local packs_file="$3"
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "WARN Metadata JSON not parsed because python3 is unavailable."
+    : > "$packs_file"
+    return 0
+  fi
+
+  if ! python3 - "$metadata_path" "$packs_file" <<'PY'
+import json
+import sys
+
+metadata_path = sys.argv[1]
+packs_file = sys.argv[2]
+
+with open(metadata_path, "r", encoding="utf-8") as handle:
+    metadata = json.load(handle)
+
+profile = metadata.get("profile")
+packs = metadata.get("packs")
+
+if profile not in ("mvp", "full"):
+    raise SystemExit(f"Invalid metadata profile: {profile!r}")
+if not isinstance(packs, list) or not all(isinstance(pack, str) for pack in packs):
+    raise SystemExit("Invalid metadata packs: expected an array of strings")
+
+with open(packs_file, "w", encoding="utf-8") as handle:
+    for pack in packs:
+        handle.write(pack + "\n")
+
+print(f"OK   metadata valid: profile={profile}, packs={len(packs)}")
+PY
+  then
+    echo "FAIL metadata invalid: $metadata_path"
+    return 1
+  fi
+
+  return 0
+}
+
+run_check() {
+  local target_dir="$1"
+  local status=0
+  local packs_file
+
+  echo "agent-harness check"
+  echo ""
+  echo "Target: $target_dir"
+  echo ""
+
+  check_file_exists "$target_dir/AGENTS.md" "root AGENTS.md" || status=1
+  check_path_exists "$target_dir/.agent-harness" ".agent-harness directory" || status=1
+  check_file_exists "$target_dir/.agent-harness/AGENTS.md" "framework AGENTS.md" || status=1
+  check_file_exists "$target_dir/.agent-harness/agent-harness.json" "metadata" || status=1
+  check_file_exists "$target_dir/.agent-harness/scripts/verify.sh" "Bash verification script" || status=1
+  check_file_exists "$target_dir/.agent-harness/scripts/verify.ps1" "PowerShell verification script" || status=1
+
+  packs_file="$(mktemp)"
+  : > "$packs_file"
+  if [ -f "$target_dir/.agent-harness/agent-harness.json" ]; then
+    check_metadata "$target_dir/.agent-harness/agent-harness.json" "$target_dir" "$packs_file" || status=1
+  fi
+
+  while IFS= read -r pack; do
+    if [ -z "$pack" ]; then
+      continue
+    fi
+    check_path_exists "$target_dir/.agent-harness/packs/$pack" "installed pack $pack" || status=1
+  done < "$packs_file"
+  rm -f "$packs_file"
+
+  for legacy_path in "$target_dir/.harness" "$target_dir/.mcp" "$target_dir/.superpowers" "$target_dir/progress"; do
+    if [ -e "$legacy_path" ]; then
+      echo "WARN legacy flat-layout path exists: $legacy_path"
+    else
+      echo "OK   legacy flat-layout path absent: $legacy_path"
+    fi
+  done
+
+  echo ""
+  if [ "$status" -eq 0 ]; then
+    echo "Check passed."
+  else
+    echo "Check failed."
+  fi
+
+  return "$status"
+}
+
 json_pack_array() {
   local first=1
   printf '['
-  for pack in "${PACKS[@]}"; do
-    if [ "$first" -eq 0 ]; then
-      printf ', '
-    fi
-    printf '"%s"' "$pack"
-    first=0
-  done
+  if [ "${#PACKS[@]}" -gt 0 ]; then
+    for pack in "${PACKS[@]}"; do
+      if [ "$first" -eq 0 ]; then
+        printf ', '
+      fi
+      printf '"%s"' "$pack"
+      first=0
+    done
+  fi
   printf ']'
 }
 
@@ -202,13 +393,15 @@ pack_list_text() {
     return
   fi
 
-  for pack in "${PACKS[@]}"; do
-    if [ "$first" -eq 0 ]; then
-      printf ', '
-    fi
-    printf '%s' "$pack"
-    first=0
-  done
+  if [ "${#PACKS[@]}" -gt 0 ]; then
+    for pack in "${PACKS[@]}"; do
+      if [ "$first" -eq 0 ]; then
+        printf ', '
+      fi
+      printf '%s' "$pack"
+      first=0
+    done
+  fi
 }
 
 tty_print() {
@@ -360,7 +553,16 @@ write_metadata() {
 EOF
 }
 
-TEMPLATES_DIR="$(resolve_templates_dir)"
+if [ "$CHECK" -eq 1 ] && [ "$DRY_RUN" -eq 1 ]; then
+  echo "Use either --check or --dry-run, not both." >&2
+  exit 1
+fi
+
+if [ "$CHECK" -eq 1 ] && [ "$ORIGINAL_ARG_COUNT" -ne 0 ]; then
+  TEMPLATES_DIR=""
+else
+  TEMPLATES_DIR="$(resolve_templates_dir)"
+fi
 run_interactive_config
 
 if [ "$PROFILE" != "mvp" ] && [ "$PROFILE" != "full" ]; then
@@ -373,33 +575,61 @@ if [ -z "$TARGET_DIR" ]; then
   exit 1
 fi
 
-for pack in "${PACKS[@]}"; do
-  if ! [[ "$pack" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
-    echo "Invalid pack name: $pack. Use lowercase letters, numbers, and hyphens." >&2
-    exit 1
+if [ "$CHECK" -eq 1 ]; then
+  if [ -d "$TARGET_DIR" ]; then
+    TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
   fi
-done
+  run_check "$TARGET_DIR"
+  exit $?
+fi
 
-mkdir -p "$TARGET_DIR"
-TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
+if [ "${#PACKS[@]}" -gt 0 ]; then
+  for pack in "${PACKS[@]}"; do
+    if ! [[ "$pack" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+      echo "Invalid pack name: $pack. Use lowercase letters, numbers, and hyphens." >&2
+      exit 1
+    fi
+  done
+fi
+
+if [ -d "$TARGET_DIR" ]; then
+  TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
+else
+  case "$TARGET_DIR" in
+    /*) ;;
+    *) TARGET_DIR="$PWD/$TARGET_DIR" ;;
+  esac
+fi
 
 TIMESTAMP="$(date +%Y%m%d%H%M%S)"
 
-for pack in "${PACKS[@]}"; do
-  if [ ! -d "$TEMPLATES_DIR/packs/$pack" ]; then
-    echo "Pack does not exist: $pack" >&2
-    exit 1
-  fi
-done
+if [ "${#PACKS[@]}" -gt 0 ]; then
+  for pack in "${PACKS[@]}"; do
+    if [ ! -d "$TEMPLATES_DIR/packs/$pack" ]; then
+      echo "Pack does not exist: $pack" >&2
+      exit 1
+    fi
+  done
+fi
+
+if [ "$DRY_RUN" -eq 1 ]; then
+  run_dry_run "$TEMPLATES_DIR" "$TARGET_DIR"
+  exit 0
+fi
+
+mkdir -p "$TARGET_DIR"
+TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
 
 copy_profile "$TEMPLATES_DIR/core/mvp" "$TARGET_DIR" "$TIMESTAMP"
 if [ "$PROFILE" = "full" ]; then
   copy_profile "$TEMPLATES_DIR/core/full" "$TARGET_DIR" "$TIMESTAMP"
 fi
 
-for pack in "${PACKS[@]}"; do
-  copy_pack "$TEMPLATES_DIR" "$pack" "$TARGET_DIR" "$TIMESTAMP"
-done
+if [ "${#PACKS[@]}" -gt 0 ]; then
+  for pack in "${PACKS[@]}"; do
+    copy_pack "$TEMPLATES_DIR" "$pack" "$TARGET_DIR" "$TIMESTAMP"
+  done
+fi
 
 write_metadata "$TARGET_DIR" "$TIMESTAMP"
 

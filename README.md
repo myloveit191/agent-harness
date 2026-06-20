@@ -36,6 +36,18 @@ macOS / Linux with multiple packs once more packs are added:
 curl -fsSL https://raw.githubusercontent.com/myloveit191/agent-harness/main/install.sh | bash -s -- --pack pack-one --pack pack-two
 ```
 
+Check an existing install:
+
+```bash
+bash install.sh --check --target /path/to/project
+```
+
+Preview changes without writing files:
+
+```bash
+bash install.sh --dry-run --target /path/to/project --pack model-proxy-api
+```
+
 Windows PowerShell:
 
 ```powershell
@@ -60,6 +72,18 @@ Windows PowerShell with multiple packs once more packs are added:
 iex "& { $(irm https://raw.githubusercontent.com/myloveit191/agent-harness/main/install.ps1) } -Pack pack-one,pack-two"
 ```
 
+Check an existing install:
+
+```powershell
+.\install.ps1 -Check -Target C:\path\to\project
+```
+
+Preview changes without writing files:
+
+```powershell
+.\install.ps1 -DryRun -Target C:\path\to\project -Pack model-proxy-api
+```
+
 ## Local Test
 
 From this repository:
@@ -80,6 +104,12 @@ bash install.sh --target /path/to/project --pack model-proxy-api
 
 ```powershell
 .\install.ps1 -Target C:\path\to\project -Pack model-proxy-api
+```
+
+Run the installer test harness:
+
+```bash
+./scripts/test-install.sh
 ```
 
 ## Profiles

@@ -9,7 +9,11 @@ param(
 
     [switch]$Force,
 
-    [switch]$Yes
+    [switch]$Yes,
+
+    [switch]$Check,
+
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
@@ -50,6 +54,16 @@ function Get-AvailablePacks {
     }
 
     return @(Get-ChildItem -LiteralPath $packsDirectory -Directory | Sort-Object Name | ForEach-Object { $_.Name })
+}
+
+function Get-PackText {
+    param([string[]]$Packs = @())
+
+    if (-not $Packs -or $Packs.Count -eq 0) {
+        return "none"
+    }
+
+    return ($Packs -join ", ")
 }
 
 function Get-TemplatesDirectory {
@@ -137,6 +151,79 @@ function Copy-Pack {
     Copy-Profile -Source $source -Destination $packDestination -Timestamp $Timestamp
 }
 
+function Get-ProfileFiles {
+    param(
+        [Parameter(Mandatory = $true)][string]$Source,
+        [Parameter(Mandatory = $true)][string]$Destination
+    )
+
+    $sourceRoot = (Resolve-Path -LiteralPath $Source).Path.TrimEnd('\', '/')
+
+    Get-ChildItem -LiteralPath $Source -File -Recurse | ForEach-Object {
+        $relative = $_.FullName.Substring($sourceRoot.Length).TrimStart('\', '/')
+        Join-Path $Destination $relative
+    }
+}
+
+function Get-InstallFiles {
+    param(
+        [Parameter(Mandatory = $true)][string]$TemplatesDirectory,
+        [Parameter(Mandatory = $true)][string]$Destination,
+        [Parameter(Mandatory = $true)][string]$ProfileName,
+        [string[]]$Packs = @()
+    )
+
+    Get-ProfileFiles -Source (Join-Path $TemplatesDirectory "core\mvp") -Destination $Destination
+
+    if ($ProfileName -eq "full") {
+        Get-ProfileFiles -Source (Join-Path $TemplatesDirectory "core\full") -Destination $Destination
+    }
+
+    foreach ($packName in $Packs) {
+        $source = Join-Path (Join-Path $TemplatesDirectory "packs") $packName
+        $packDestination = Join-Path (Join-Path $Destination ".agent-harness\packs") $packName
+        Get-ProfileFiles -Source $source -Destination $packDestination
+    }
+
+    Join-Path $Destination ".agent-harness\agent-harness.json"
+}
+
+function Invoke-DryRun {
+    param(
+        [Parameter(Mandatory = $true)][string]$TemplatesDirectory,
+        [Parameter(Mandatory = $true)][string]$Destination,
+        [Parameter(Mandatory = $true)][string]$ProfileName,
+        [string[]]$Packs = @()
+    )
+
+    Write-Host "agent-harness dry run"
+    Write-Host ""
+    Write-Host "Profile: $ProfileName"
+    Write-Host "Packs:   $(Get-PackText -Packs $Packs)"
+    Write-Host "Target:  $Destination"
+    if ($Force) {
+        Write-Host "Force:   backup and overwrite"
+    }
+    else {
+        Write-Host "Force:   no"
+    }
+    Write-Host ""
+
+    foreach ($targetFile in (Get-InstallFiles -TemplatesDirectory $TemplatesDirectory -Destination $Destination -ProfileName $ProfileName -Packs $Packs)) {
+        if (Test-Path -LiteralPath $targetFile) {
+            if ($Force) {
+                Write-Host "BACKUP+OVERWRITE $targetFile"
+            }
+            else {
+                Write-Host "WOULD FAIL       $targetFile"
+            }
+        }
+        else {
+            Write-Host "CREATE           $targetFile"
+        }
+    }
+}
+
 function Write-GeneratedFile {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
@@ -178,6 +265,88 @@ function Write-Metadata {
     $json = $metadata | ConvertTo-Json -Depth 4 -Compress
     $metadataPath = Join-Path $Destination ".agent-harness\agent-harness.json"
     Write-GeneratedFile -Path $metadataPath -Content $json -Timestamp $Timestamp
+}
+
+function Write-CheckPath {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Label,
+        [switch]$Container
+    )
+
+    $pathType = if ($Container) { "Container" } else { "Leaf" }
+    if (Test-Path -LiteralPath $Path -PathType $pathType) {
+        Write-Host "OK   $Label"
+        return $true
+    }
+
+    Write-Host "FAIL $Label missing: $Path"
+    return $false
+}
+
+function Invoke-Check {
+    param([Parameter(Mandatory = $true)][string]$Destination)
+
+    $status = $true
+
+    Write-Host "agent-harness check"
+    Write-Host ""
+    Write-Host "Target: $Destination"
+    Write-Host ""
+
+    if (-not (Write-CheckPath -Path (Join-Path $Destination "AGENTS.md") -Label "root AGENTS.md")) { $status = $false }
+    if (-not (Write-CheckPath -Path (Join-Path $Destination ".agent-harness") -Label ".agent-harness directory" -Container)) { $status = $false }
+    if (-not (Write-CheckPath -Path (Join-Path $Destination ".agent-harness\AGENTS.md") -Label "framework AGENTS.md")) { $status = $false }
+
+    $metadataPath = Join-Path $Destination ".agent-harness\agent-harness.json"
+    if (-not (Write-CheckPath -Path $metadataPath -Label "metadata")) { $status = $false }
+    if (-not (Write-CheckPath -Path (Join-Path $Destination ".agent-harness\scripts\verify.sh") -Label "Bash verification script")) { $status = $false }
+    if (-not (Write-CheckPath -Path (Join-Path $Destination ".agent-harness\scripts\verify.ps1") -Label "PowerShell verification script")) { $status = $false }
+
+    if (Test-Path -LiteralPath $metadataPath -PathType Leaf) {
+        try {
+            $metadata = Get-Content -LiteralPath $metadataPath -Raw | ConvertFrom-Json
+            if ($metadata.profile -notin @("mvp", "full")) {
+                throw "Invalid metadata profile: $($metadata.profile)"
+            }
+
+            [string[]]$metadataPacks = @($metadata.packs)
+            Write-Host "OK   metadata valid: profile=$($metadata.profile), packs=$($metadataPacks.Count)"
+
+            foreach ($packName in $metadataPacks) {
+                if (-not $packName) {
+                    continue
+                }
+
+                if (-not (Write-CheckPath -Path (Join-Path (Join-Path $Destination ".agent-harness\packs") $packName) -Label "installed pack $packName" -Container)) {
+                    $status = $false
+                }
+            }
+        }
+        catch {
+            Write-Host "FAIL metadata invalid: $metadataPath"
+            Write-Host "     $($_.Exception.Message)"
+            $status = $false
+        }
+    }
+
+    foreach ($legacyPath in @(".harness", ".mcp", ".superpowers", "progress")) {
+        $fullLegacyPath = Join-Path $Destination $legacyPath
+        if (Test-Path -LiteralPath $fullLegacyPath) {
+            Write-Host "WARN legacy flat-layout path exists: $fullLegacyPath"
+        }
+        else {
+            Write-Host "OK   legacy flat-layout path absent: $fullLegacyPath"
+        }
+    }
+
+    Write-Host ""
+    if ($status) {
+        Write-Host "Check passed."
+        return
+    }
+
+    throw "Check failed."
 }
 
 function Invoke-InteractiveConfig {
@@ -279,11 +448,37 @@ function Invoke-InteractiveConfig {
 }
 
 try {
-    $templatesDirectory = Get-TemplatesDirectory
-    Invoke-InteractiveConfig -TemplatesDirectory $templatesDirectory
+    if ($Check -and $DryRun) {
+        throw "Use either -Check or -DryRun, not both."
+    }
 
-    New-Item -ItemType Directory -Path $Target -Force | Out-Null
-    $Target = (Resolve-Path -LiteralPath $Target).Path
+    if ($Check -and -not $InteractiveMode) {
+        $templatesDirectory = $null
+    }
+    else {
+        $templatesDirectory = Get-TemplatesDirectory
+    }
+
+    if ($templatesDirectory) {
+        Invoke-InteractiveConfig -TemplatesDirectory $templatesDirectory
+    }
+
+    if ($Check) {
+        if (Test-Path -LiteralPath $Target -PathType Container) {
+            $Target = (Resolve-Path -LiteralPath $Target).Path
+        }
+
+        Invoke-Check -Destination $Target
+        return
+    }
+
+    if (Test-Path -LiteralPath $Target -PathType Container) {
+        $Target = (Resolve-Path -LiteralPath $Target).Path
+    }
+    elseif (-not [System.IO.Path]::IsPathRooted($Target)) {
+        $Target = Join-Path (Get-Location).Path $Target
+    }
+
     $timestamp = Get-Date -Format "yyyyMMddHHmmss"
     [string[]]$normalizedPacks = @(Get-NormalizedPacks -InputPacks $Pack)
 
@@ -297,6 +492,14 @@ try {
             throw "Pack does not exist: $packName"
         }
     }
+
+    if ($DryRun) {
+        Invoke-DryRun -TemplatesDirectory $templatesDirectory -Destination $Target -ProfileName $Profile -Packs $normalizedPacks
+        return
+    }
+
+    New-Item -ItemType Directory -Path $Target -Force | Out-Null
+    $Target = (Resolve-Path -LiteralPath $Target).Path
 
     Copy-Profile -Source (Join-Path $templatesDirectory "core\mvp") -Destination $Target -Timestamp $timestamp
     if ($Profile -eq "full") {
