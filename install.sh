@@ -9,7 +9,7 @@ CHECK=0
 DRY_RUN=0
 REPO_URL="${AGENT_HARNESS_REPO:-https://github.com/myloveit191/agent-harness}"
 REF="${AGENT_HARNESS_REF:-main}"
-VERSION="0.2.0"
+VERSION="0.3.0"
 PACKS=()
 ORIGINAL_ARG_COUNT="$#"
 
@@ -146,6 +146,7 @@ copy_profile() {
   local source_dir="$1"
   local target_dir="$2"
   local timestamp="$3"
+  local skip_root_readme="${4:-0}"
 
   if [ ! -d "$source_dir" ]; then
     echo "Template profile does not exist: $source_dir" >&2
@@ -162,6 +163,9 @@ copy_profile() {
 
   while IFS= read -r file_path; do
     rel_path="${file_path#$source_dir/}"
+    if [ "$skip_root_readme" -eq 1 ] && [ "$rel_path" = "README.md" ]; then
+      continue
+    fi
     dest_path="$target_dir/$rel_path"
     mkdir -p "$(dirname "$dest_path")"
 
@@ -193,15 +197,19 @@ copy_pack() {
     exit 1
   fi
 
-  copy_profile "$source_dir" "$destination_dir" "$timestamp"
+  copy_profile "$source_dir" "$destination_dir" "$timestamp" 0
 }
 
 list_profile_files() {
   local source_dir="$1"
   local destination_dir="$2"
+  local skip_root_readme="${3:-0}"
 
   "$FIND_BIN" "$source_dir" -type f | while IFS= read -r file_path; do
     rel_path="${file_path#$source_dir/}"
+    if [ "$skip_root_readme" -eq 1 ] && [ "$rel_path" = "README.md" ]; then
+      continue
+    fi
     printf '%s\n' "$destination_dir/$rel_path"
   done
 }
@@ -210,14 +218,14 @@ list_install_files() {
   local templates_dir="$1"
   local target_dir="$2"
 
-  list_profile_files "$templates_dir/core/mvp" "$target_dir"
+  list_profile_files "$templates_dir/core/mvp" "$target_dir" 1
   if [ "$PROFILE" = "full" ]; then
-    list_profile_files "$templates_dir/core/full" "$target_dir"
+    list_profile_files "$templates_dir/core/full" "$target_dir" 1
   fi
 
   if [ "${#PACKS[@]}" -gt 0 ]; then
     for pack in "${PACKS[@]}"; do
-      list_profile_files "$templates_dir/packs/$pack" "$target_dir/.agent-harness/packs/$pack"
+      list_profile_files "$templates_dir/packs/$pack" "$target_dir/.agent-harness/packs/$pack" 0
     done
   fi
 
@@ -340,6 +348,13 @@ run_check() {
   check_file_exists "$target_dir/AGENTS.md" "root AGENTS.md" || status=1
   check_path_exists "$target_dir/.agent-harness" ".agent-harness directory" || status=1
   check_file_exists "$target_dir/.agent-harness/AGENTS.md" "framework AGENTS.md" || status=1
+  check_file_exists "$target_dir/.agent-harness/workflows/lifecycle.md" "lifecycle workflow" || status=1
+  check_file_exists "$target_dir/.agent-harness/workflows/phase-to-task.md" "phase-to-task workflow" || status=1
+  check_file_exists "$target_dir/.agent-harness/gates/01-idea-gate.md" "idea gate" || status=1
+  check_file_exists "$target_dir/.agent-harness/gates/08-growth-gate.md" "growth gate" || status=1
+  check_file_exists "$target_dir/.agent-harness/project/README.md" "project memory README" || status=1
+  check_path_exists "$target_dir/.agent-harness/project/growth" "growth project memory" || status=1
+  check_file_exists "$target_dir/.agent-harness/superpowers/policy.md" "superpowers policy" || status=1
   check_file_exists "$target_dir/.agent-harness/agent-harness.json" "metadata" || status=1
   check_file_exists "$target_dir/.agent-harness/scripts/verify.sh" "Bash verification script" || status=1
   check_file_exists "$target_dir/.agent-harness/scripts/verify.ps1" "PowerShell verification script" || status=1
@@ -647,9 +662,9 @@ fi
 mkdir -p "$TARGET_DIR"
 TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
 
-copy_profile "$TEMPLATES_DIR/core/mvp" "$TARGET_DIR" "$TIMESTAMP"
+copy_profile "$TEMPLATES_DIR/core/mvp" "$TARGET_DIR" "$TIMESTAMP" 1
 if [ "$PROFILE" = "full" ]; then
-  copy_profile "$TEMPLATES_DIR/core/full" "$TARGET_DIR" "$TIMESTAMP"
+  copy_profile "$TEMPLATES_DIR/core/full" "$TARGET_DIR" "$TIMESTAMP" 1
 fi
 
 if [ "${#PACKS[@]}" -gt 0 ]; then
@@ -672,7 +687,7 @@ Target:  $TARGET_DIR
 
 Next steps:
   1. Review AGENTS.md.
-  2. Customize .agent-harness/harness/instructions/context-map.md.
+  2. Fill .agent-harness/project/idea/idea-brief.md.
   3. Run verification:
      ./.agent-harness/scripts/verify.sh
 

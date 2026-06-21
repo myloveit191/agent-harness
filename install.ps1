@@ -21,7 +21,7 @@ $InteractiveMode = $PSBoundParameters.Count -eq 0
 
 $RepoUrl = if ($env:AGENT_HARNESS_REPO) { $env:AGENT_HARNESS_REPO } else { "https://github.com/myloveit191/agent-harness" }
 $Ref = if ($env:AGENT_HARNESS_REF) { $env:AGENT_HARNESS_REF } else { "main" }
-$Version = "0.2.0"
+$Version = "0.3.0"
 $script:TempDownloadDirectory = $null
 
 function Get-NormalizedPacks {
@@ -99,7 +99,8 @@ function Copy-Profile {
     param(
         [Parameter(Mandatory = $true)][string]$Source,
         [Parameter(Mandatory = $true)][string]$Destination,
-        [Parameter(Mandatory = $true)][string]$Timestamp
+        [Parameter(Mandatory = $true)][string]$Timestamp,
+        [bool]$SkipRootReadme = $false
     )
 
     if (-not (Test-Path -LiteralPath $Source -PathType Container)) {
@@ -116,21 +117,23 @@ function Copy-Profile {
 
     Get-ChildItem -LiteralPath $Source -File -Recurse | ForEach-Object {
         $relative = $_.FullName.Substring($sourceRoot.Length).TrimStart('\', '/')
-        $targetFile = Join-Path $Destination $relative
-        $targetDirectory = Split-Path -Parent $targetFile
-        New-Item -ItemType Directory -Path $targetDirectory -Force | Out-Null
+        if (-not ($SkipRootReadme -and $relative -eq "README.md")) {
+            $targetFile = Join-Path $Destination $relative
+            $targetDirectory = Split-Path -Parent $targetFile
+            New-Item -ItemType Directory -Path $targetDirectory -Force | Out-Null
 
-        if (Test-Path -LiteralPath $targetFile) {
-            if (-not $Force) {
-                throw "Refusing to overwrite existing file: $targetFile. Re-run with -Force to back it up and replace it."
+            if (Test-Path -LiteralPath $targetFile) {
+                if (-not $Force) {
+                    throw "Refusing to overwrite existing file: $targetFile. Re-run with -Force to back it up and replace it."
+                }
+
+                $backup = "$targetFile.backup.$Timestamp"
+                Copy-Item -LiteralPath $targetFile -Destination $backup
+                Write-Host "Backed up $targetFile -> $backup"
             }
 
-            $backup = "$targetFile.backup.$Timestamp"
-            Copy-Item -LiteralPath $targetFile -Destination $backup
-            Write-Host "Backed up $targetFile -> $backup"
+            Copy-Item -LiteralPath $_.FullName -Destination $targetFile -Force
         }
-
-        Copy-Item -LiteralPath $_.FullName -Destination $targetFile -Force
     }
 }
 
@@ -148,20 +151,23 @@ function Copy-Pack {
     }
 
     $packDestination = Join-Path (Join-Path $Destination ".agent-harness\packs") $PackName
-    Copy-Profile -Source $source -Destination $packDestination -Timestamp $Timestamp
+    Copy-Profile -Source $source -Destination $packDestination -Timestamp $Timestamp -SkipRootReadme $false
 }
 
 function Get-ProfileFiles {
     param(
         [Parameter(Mandatory = $true)][string]$Source,
-        [Parameter(Mandatory = $true)][string]$Destination
+        [Parameter(Mandatory = $true)][string]$Destination,
+        [bool]$SkipRootReadme = $false
     )
 
     $sourceRoot = (Resolve-Path -LiteralPath $Source).Path.TrimEnd('\', '/')
 
     Get-ChildItem -LiteralPath $Source -File -Recurse | ForEach-Object {
         $relative = $_.FullName.Substring($sourceRoot.Length).TrimStart('\', '/')
-        Join-Path $Destination $relative
+        if (-not ($SkipRootReadme -and $relative -eq "README.md")) {
+            Join-Path $Destination $relative
+        }
     }
 }
 
@@ -173,16 +179,16 @@ function Get-InstallFiles {
         [string[]]$Packs = @()
     )
 
-    Get-ProfileFiles -Source (Join-Path $TemplatesDirectory "core\mvp") -Destination $Destination
+    Get-ProfileFiles -Source (Join-Path $TemplatesDirectory "core\mvp") -Destination $Destination -SkipRootReadme $true
 
     if ($ProfileName -eq "full") {
-        Get-ProfileFiles -Source (Join-Path $TemplatesDirectory "core\full") -Destination $Destination
+        Get-ProfileFiles -Source (Join-Path $TemplatesDirectory "core\full") -Destination $Destination -SkipRootReadme $true
     }
 
     foreach ($packName in $Packs) {
         $source = Join-Path (Join-Path $TemplatesDirectory "packs") $packName
         $packDestination = Join-Path (Join-Path $Destination ".agent-harness\packs") $packName
-        Get-ProfileFiles -Source $source -Destination $packDestination
+        Get-ProfileFiles -Source $source -Destination $packDestination -SkipRootReadme $false
     }
 
     Join-Path $Destination ".agent-harness\agent-harness.json"
@@ -297,6 +303,13 @@ function Invoke-Check {
     if (-not (Write-CheckPath -Path (Join-Path $Destination "AGENTS.md") -Label "root AGENTS.md")) { $status = $false }
     if (-not (Write-CheckPath -Path (Join-Path $Destination ".agent-harness") -Label ".agent-harness directory" -Container)) { $status = $false }
     if (-not (Write-CheckPath -Path (Join-Path $Destination ".agent-harness\AGENTS.md") -Label "framework AGENTS.md")) { $status = $false }
+    if (-not (Write-CheckPath -Path (Join-Path $Destination ".agent-harness\workflows\lifecycle.md") -Label "lifecycle workflow")) { $status = $false }
+    if (-not (Write-CheckPath -Path (Join-Path $Destination ".agent-harness\workflows\phase-to-task.md") -Label "phase-to-task workflow")) { $status = $false }
+    if (-not (Write-CheckPath -Path (Join-Path $Destination ".agent-harness\gates\01-idea-gate.md") -Label "idea gate")) { $status = $false }
+    if (-not (Write-CheckPath -Path (Join-Path $Destination ".agent-harness\gates\08-growth-gate.md") -Label "growth gate")) { $status = $false }
+    if (-not (Write-CheckPath -Path (Join-Path $Destination ".agent-harness\project\README.md") -Label "project memory README")) { $status = $false }
+    if (-not (Write-CheckPath -Path (Join-Path $Destination ".agent-harness\project\growth") -Label "growth project memory" -Container)) { $status = $false }
+    if (-not (Write-CheckPath -Path (Join-Path $Destination ".agent-harness\superpowers\policy.md") -Label "superpowers policy")) { $status = $false }
 
     $metadataPath = Join-Path $Destination ".agent-harness\agent-harness.json"
     if (-not (Write-CheckPath -Path $metadataPath -Label "metadata")) { $status = $false }
@@ -501,9 +514,9 @@ try {
     New-Item -ItemType Directory -Path $Target -Force | Out-Null
     $Target = (Resolve-Path -LiteralPath $Target).Path
 
-    Copy-Profile -Source (Join-Path $templatesDirectory "core\mvp") -Destination $Target -Timestamp $timestamp
+    Copy-Profile -Source (Join-Path $templatesDirectory "core\mvp") -Destination $Target -Timestamp $timestamp -SkipRootReadme $true
     if ($Profile -eq "full") {
-        Copy-Profile -Source (Join-Path $templatesDirectory "core\full") -Destination $Target -Timestamp $timestamp
+        Copy-Profile -Source (Join-Path $templatesDirectory "core\full") -Destination $Target -Timestamp $timestamp -SkipRootReadme $true
     }
 
     foreach ($packName in $normalizedPacks) {
@@ -526,7 +539,7 @@ try {
     Write-Host ""
     Write-Host "Next steps:"
     Write-Host "  1. Review AGENTS.md."
-    Write-Host "  2. Customize .agent-harness/harness/instructions/context-map.md."
+    Write-Host "  2. Fill .agent-harness/project/idea/idea-brief.md."
     Write-Host "  3. Run verification:"
     Write-Host "     .\.agent-harness\scripts\verify.ps1"
     Write-Host ""

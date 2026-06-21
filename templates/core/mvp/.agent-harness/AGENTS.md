@@ -11,16 +11,17 @@ documentation, source code, tests, or configuration can answer the question.
 
 For non-trivial engineering tasks:
 
-1. Clarify ambiguous requirements before implementation.
-2. Read the relevant source, tests, docs, and harness files.
-3. Create a short implementation plan.
-4. Ask for user approval before writing or modifying code, tests, generated
+1. Locate the current lifecycle stage in `.agent-harness/workflows/`.
+2. Clarify ambiguous requirements before implementation.
+3. Read the relevant source, tests, docs, and harness files.
+4. Create a short implementation plan.
+5. Ask for user approval before writing or modifying code, tests, generated
    artifacts, configuration, or project documentation.
-5. Add or update tests for behavior changes after approval is granted.
-6. Make small, scoped changes.
-7. Review the diff.
-8. Run verification before claiming completion.
-9. Update progress or handoff notes for long-running work.
+6. Add or update tests for behavior changes after approval is granted.
+7. Make small, scoped changes.
+8. Review the diff.
+9. Run verification before claiming completion.
+10. Update progress, decisions, or handoff notes for long-running work.
 
 ## Code Change Approval Gate
 
@@ -42,12 +43,39 @@ the planned change expands beyond that approval.
 
 ## Framework Map
 
-- Workflows and skills: `.agent-harness/superpowers/`
-- Instructions and controls: `.agent-harness/harness/`
+- Product lifecycle workflows: `.agent-harness/workflows/`
+- Project memory and decisions: `.agent-harness/project/`
 - External tool permissions: `.agent-harness/mcp/`
 - Installed stack or architecture packs: `.agent-harness/packs/`
 - Progress and handoff state: `.agent-harness/progress/`
 - Verification commands: `.agent-harness/scripts/`
+
+## Product Lifecycle
+
+For product or project-building work, move through the lifecycle in order unless
+the user explicitly asks to focus on a later stage:
+
+1. Idea: capture the idea, problem, users, desired outcome, and timing.
+2. Discovery: validate the problem with real evidence and assumptions.
+3. Product: define vision, MVP scope, success criteria, and user stories.
+4. Architecture: model the domain before data, API, or infrastructure choices.
+5. Execution: split work into phases, tasks, and definition of done.
+6. Evaluation: define tests, metrics, feedback loops, and postmortems.
+7. Operations: plan deployment, monitoring, incidents, and maintenance.
+8. Growth: plan expansion only after core value and operations are proven.
+
+Use `.agent-harness/workflows/lifecycle.md` as the stage map and the files in
+`.agent-harness/project/` as the editable project memory.
+
+When moving between stages, read the matching gate in `.agent-harness/gates/`
+and record the decision in the relevant project memory file.
+
+## External Superpowers
+
+External skills or superpowers are optional capabilities. They can add
+techniques, checklists, prompts, or task-specific workflows, but they must not
+override core harness policies, lifecycle gates, approval rules, verification
+rules, tool policy, or `.agent-harness/project/` memory.
 
 ## Installed Packs
 

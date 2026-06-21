@@ -114,11 +114,13 @@ Run the installer test harness:
 
 ## Profiles
 
-- `mvp`: default, minimal framework for real projects.
-- `full`: installs the MVP files plus a small scaffold for teams that want to
-  grow toward a production internal framework.
+- `mvp`: default lightweight operating harness for real projects. It gives an
+  agent lifecycle, project memory, policies, progress files, superpowers, MCP
+  notes, and verification without making the root noisy.
+- `full`: complete project development harness for teams or larger projects.
+  It installs MVP plus agent routing, specs, plans, and evaluation checklists.
 
-## Core And Packs
+## Core, Packs, And Superpowers
 
 Core is shared by every project. It contains the agent entrypoint, workflows,
 policies, progress files, and verification scripts.
@@ -144,6 +146,16 @@ Each pack should answer:
 4. What risks are common?
 5. When is approval required?
 
+Superpowers are optional skills and task workflows. Bundled and external
+superpowers live under:
+
+```text
+.agent-harness/superpowers/
+```
+
+Superpowers must not override lifecycle gates, approval policy, verification
+policy, tool policy, or `.agent-harness/project/` memory.
+
 ## Safety
 
 The installer does not require a Git repository.
@@ -165,20 +177,72 @@ AGENTS.md
 Root `AGENTS.md` is only a small pointer. The actual framework lives under
 `.agent-harness/` so the project root stays clean.
 
+The MVP core now includes a product lifecycle harness:
+
+```text
+.agent-harness/gates/
+.agent-harness/workflows/lifecycle.md
+.agent-harness/project/
+.agent-harness/superpowers/
+```
+
+Use `.agent-harness/workflows/lifecycle.md` as the stage map from idea to
+growth. Use `.agent-harness/project/` as editable project memory for:
+
+- idea
+- discovery
+- product
+- architecture
+- execution
+- evaluation
+- operations
+- growth
+
+Use `.agent-harness/gates/` to decide whether a stage should continue, adjust,
+narrow, or stop.
+
+## What Full Adds
+
+The `full` profile installs MVP first, then adds:
+
+```text
+.agent-harness/agent/
+.agent-harness/evals/
+.agent-harness/plans/
+.agent-harness/specs/
+```
+
+Use `full` when the project needs explicit runtime routing, specs, plans, and
+agent quality checklists across multiple sessions or contributors.
+
 Install metadata is written to:
 
 ```text
 .agent-harness/agent-harness.json
 ```
 
-The installed framework is centered on five operating rules:
+The installed framework is centered on eight operating rules:
 
 1. The repository is the source of truth.
-2. Ambiguous tasks must be clarified before implementation.
-3. Code-changing actions require user approval before implementation.
-4. Behavior changes need tests.
-5. Completion requires verification.
-6. Risky actions require approval.
+2. Product work should move through idea, discovery, product, architecture,
+   execution, evaluation, operations, and growth.
+3. Ambiguous tasks must be clarified before implementation.
+4. Code-changing actions require user approval before implementation.
+5. Behavior changes need tests.
+6. Completion requires verification.
+7. Risky actions require approval.
+8. External superpowers are optional and lower priority than harness policy.
+
+## Examples
+
+Filled examples live under:
+
+```text
+examples/
+```
+
+Start with `examples/blearnica/` to see how idea, discovery, product,
+architecture, execution, and evaluation memory can be filled.
 
 When an agent recommends a code change, it should present the intended action,
 state whether it recommends proceeding, and wait for explicit user approval

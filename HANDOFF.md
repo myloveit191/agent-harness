@@ -31,7 +31,7 @@ The project currently supports:
 - Metadata file generated on install:
   - `.agent-harness/agent-harness.json`
 - Current version:
-  - `0.2.0`
+  - `0.3.0`
 
 ## Public Install Commands
 
@@ -65,16 +65,26 @@ iex "& { $(irm https://raw.githubusercontent.com/myloveit191/agent-harness/main/
    - Core is shared by every project.
    - Packs add stack, framework, or architecture-specific guidance.
 
-3. Current stack pack is `nextjs`.
+3. MVP and full have different jobs.
+   - `mvp` is the lightweight operating harness.
+   - `full` is the complete project development overlay with routing, specs,
+     plans, and eval checklists.
+
+4. Superpowers are subordinate to harness policy.
+   - External skills can be imported under `.agent-harness/superpowers/`.
+   - They must not override lifecycle gates, approval, verification, tool
+     policy, or project memory.
+
+5. Current stack pack is `nextjs`.
    - Chosen to guide agents working on Next.js applications across routing,
      rendering, data fetching, server/client boundaries, styling, security,
      performance, and verification.
 
-4. Installers are safe by default.
+6. Installers are safe by default.
    - Existing files are not overwritten unless `--force` or `-Force` is used.
    - Forced overwrites create timestamped backups first.
 
-5. Interactive mode is default when no options are passed.
+7. Interactive mode is default when no options are passed.
    - It asks for profile, packs, target directory, overwrite behavior, and final
      confirmation.
    - Non-interactive mode remains available when options are passed.
@@ -114,7 +124,7 @@ Example:
 
 ```json
 {
-  "version": "0.2.0",
+  "version": "0.3.0",
   "profile": "mvp",
   "layout": "nested",
   "packs": ["nextjs"],
@@ -198,6 +208,8 @@ Check should report:
 - Root `AGENTS.md` exists.
 - `.agent-harness/` exists.
 - `.agent-harness/AGENTS.md` exists.
+- `.agent-harness/workflows/lifecycle.md` exists.
+- `.agent-harness/project/README.md` exists.
 - `.agent-harness/agent-harness.json` exists and is valid.
 - Metadata profile and packs are readable.
 - Packs listed in metadata exist under `.agent-harness/packs/`.
@@ -260,7 +272,19 @@ Stabilize:
 
 ## Changelog
 
-### 0.2.1 Unreleased
+### 0.3.0
+
+- Expanded lifecycle from idea-to-operations to idea-to-growth.
+- Added stage gates under `.agent-harness/gates/`.
+- Added growth project memory.
+- Added module design templates.
+- Added phase-to-task, release-flow, and feedback-loop workflows.
+- Added superpowers registry, policy, and external import guidance.
+- Added visible README files for `templates/core/mvp` and `templates/core/full`.
+- Added Blearnica example project memory.
+- Extended Bash and PowerShell checks for gates, growth, and superpowers policy.
+
+### 0.2.1
 
 - Hardened Bash argument validation for missing values:
   - `--pack`
@@ -269,6 +293,10 @@ Stabilize:
 - Hardened PowerShell pack validation to reject uppercase or invalid pack names.
 - Added `nextjs` pack guidance for Next.js applications.
 - Hardened Bash check/test behavior on Windows Git Bash environments.
+- Added a product lifecycle harness from idea to operations.
+- Added editable project memory templates under `.agent-harness/project/`.
+- Updated installer next steps to point at the idea brief.
+- Extended `--check` and `-Check` to verify lifecycle and project memory files.
 
 ### 0.2.0
 
